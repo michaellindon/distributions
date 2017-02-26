@@ -43,7 +43,7 @@
   (new GumbelDistribution location scale))
 (defn hypergeometric
   [population-size number-successes sample-size]
-  (new hypergeometric population-size number-successes sample-size))
+  (new HypergeometricDistribution population-size number-successes sample-size))
 (defn laplace
   [location scale]
   (new LaplaceDistribution location scale))
@@ -97,131 +97,150 @@
   [number-of-elements exponent]
   (new ZipfDistribution number-of-elements exponent))
 
+(defprotocol probability-function
+  (P [d] [d x]))
+(extend-protocol probability-function
+  IntegerDistribution
+  (P
+    ([d] (fn [x] (.probability d x)))
+    ([d x] (.probability d x)))
+  RealDistribution
+  (P
+    ([d] (fn [x] (.probability d x)))
+    ([d x] (.probability d x)))
+  )
 
-(defprotocol univariate-real
-  (cdf [d] [d x])
+(defprotocol density-function
   (pdf [d] [d x])
-  (log-pdf [d] [d x])
-  (mean [d])
-  (variance [d])
-  (support-lower-bound [d])
-  (support-upper-bound [d])
-  (icdf [d] [d x])
-  (support-connected [d])
-  (sample [d] [d n]))
-
-(extend-type RealDistribution
-  univariate-real
-  (cdf
-    ([d x] (.cumulativeProbability d x))
-    ([d] (fn [x] (cdf d x))))
+  (log-pdf [d] [d x]))
+(extend-protocol density-function
+  RealDistribution
   (pdf
     ([d x] (.density d x))
     ([d] (fn [x] (pdf d x))))
   (log-pdf
     ([d x] (.logDensity d x))
-    ([d] (fn [x] (log-pdf d x))))
-  (mean [d] (.getNumericalMean d))
-  (variance [d] (.getNumericalVariance d))
-  (support-lower-bound [d] (.getSupportLowerBound d))
-  (support-upper-bound [d] (.getSupportUpperBound d))
-  (icdf
-    ([d x] (.inverseCumulativeProbability d x))
-    ([d] (fn [x] (icdf d x))))
-  (sample
-    ([d] (.sample d))
-    ([d n] (take n (repeatedly #(sample d)))))
-  )
+    ([d] (fn [x] (log-pdf d x)))))
 
-(extend-type AbstractRealDistribution
-  univariate-real
-  (cdf
-    ([d x] (.cumulativeProbability d x))
-    ([d] (fn [x] (cdf d x))))
-  (pdf
-    ([d x] (.density d x))
-    ([d] (fn [x] (pdf d x))))
-  (log-pdf
-    ([d x] (.logDensity d x))
-    ([d] (fn [x] (log-pdf d x))))
-  (mean [d] (.getNumericalMean d))
-  (variance [d] (.getNumericalVariance d))
-  (support-lower-bound [d] (.getSupportLowerBound d))
-  (support-upper-bound [d] (.getSupportUpperBound d))
-  (icdf
-    ([d x] (.inverseCumulativeProbability d x))
-    ([d] (fn [x] (icdf d x))))
-  (sample
-    ([d] (.sample d))
-    ([d n] (take n (repeatedly #(sample d)))))
-  )
-
-(defprotocol univariate-integer
-  (cdf [d] [d x])
+(defprotocol mass-function
   (pmf [d] [d x])
-  (log-pmf [d] [d x])
-  (mean [d])
-  (variance [d])
-  (support-lower-bound [d])
-  (support-upper-bound [d])
-  (icdf [d] [d x])
-  (support-connected [d])
+  (log-pmf [d] [d x]))
+(extend-protocol mass-function
+  IntegerDistribution
+  (pmf
+    ([d x] (if (integer? x)
+             (.probability d x)
+             0))
+    ([d] (fn [x] (pdf d x))))
+  (log-pmf
+    ([d x] (if (integer? x)
+             (.logProbability d x)
+             Double/NEGATIVE_INFINITY))
+    ([d] (fn [x] (log-pmf d x))))
+  )
+
+(defprotocol distribution-function
+  (cdf [d] [d x]))
+(extend-protocol distribution-function
+  IntegerDistribution
+  (cdf
+    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d x] (.cumulativeProbability d x)))
+  RealDistribution
+  (cdf
+    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d x] (.cumulativeProbability d x)))
+  )
+
+(defprotocol inverse-distribution-function
+  (icdf [d] [d x]))
+(extend-protocol inverse-distribution-function
+  IntegerDistribution
+  (icdf
+    ([d] (fn [x] (.inverseCumulativeProbability d x)))
+    ([d x] (.inverseCumulativeProbability d x)))
+  RealDistribution
+  (icdf
+    ([d] (fn [x] (.inverseCumulativeProbability d x)))
+    ([d x] (.inverseCumulativeProbability d x)))
+  )
+
+(defprotocol support
+  (support [d])
+  (support-lower [d])
+  (support-upper [d])
+  )
+(extend-protocol support
+  IntegerDistribution
+  (support [d] [(support-lower d) (support-upper d)])
+  (support-lower [d] (.getSupportLowerBound d))
+  (support-upper [d] (.getSupportUpperBound d))
+  RealDistribution
+  (support [d] [(support-lower d) (support-upper d)])
+  (support-lower [d] (.getSupportLowerBound d))
+  (support-upper [d] (.getSupportUpperBound d))
+  )
+
+(defprotocol first-moment
+  (mean [d]))
+(extend-protocol first-moment
+  IntegerDistribution
+  (mean [d] (.getNumericalMean d))
+  RealDistribution
+  (mean [d] (.getNumericalMean d))
+  )
+
+(defprotocol second-central-moment
+  (variance [d]))
+(extend-protocol second-central-moment
+  IntegerDistribution
+  (variance [d] (.getNumericalVariance d))
+  RealDistribution
+  (variance [d] (.getNumericalVariance d))
+  )
+
+(defprotocol random
   (sample [d] [d n]))
-
-(extend-type IntegerDistribution
-  univariate-integer
-  (cdf
-    ([d x] (.cumulativeProbability d x))
-    ([d] (fn [x] (cdf d x))))
-  (pmf
-    ([d x] (if (integer? x)
-             (.probability d x)
-             0))
-    ([d] (fn [x] (pdf d x))))
-  (log-pmf
-    ([d x] (if (integer? x)
-             (.logProbability d x)
-             Double/NEGATIVE_INFINITY))
-    ([d] (fn [x] (log-pdf d x))))
-  (mean [d] (.getNumericalMean d))
-  (variance [d] (.getNumericalVariance d))
-  (support-lower-bound [d] (.getSupportLowerBound d))
-  (support-upper-bound [d] (.getSupportUpperBound d))
-  (icdf
-    ([d x] (.inverseCumulativeProbability d x))
-    ([d] (fn [x] (icdf d x))))
+(extend-protocol random
+  IntegerDistribution
+  (sample
+    ([d] (.sample d))
+    ([d n] (take n (repeatedly #(sample d)))))
+  RealDistribution
   (sample
     ([d] (.sample d))
     ([d n] (take n (repeatedly #(sample d)))))
   )
 
-(extend-type AbstractIntegerDistribution
-  univariate-integer
-  (cdf
-    ([d x] (.cumulativeProbability d x))
-    ([d] (fn [x] (cdf d x))))
-  (pmf
-    ([d x] (if (integer? x)
-             (.probability d x)
-             0))
-    ([d] (fn [x] (pdf d x))))
-  (log-pmf
-    ([d x] (if (integer? x)
-             (.logProbability d x)
-             Double/NEGATIVE_INFINITY))
-    ([d] (fn [x] (log-pdf d x))))
-  (mean [d] (.getNumericalMean d))
-  (variance [d] (.getNumericalVariance d))
-  (support-lower-bound [d] (.getSupportLowerBound d))
-  (support-upper-bound [d] (.getSupportUpperBound d))
-  (icdf
-    ([d x] (.inverseCumulativeProbability d x))
-    ([d] (fn [x] (icdf d x))))
-  (sample
-    ([d] (.sample d))
-    ([d n] (take n (repeatedly #(sample d)))))
-  )
+
 
 (defprotocol exponential-family
   (natural-parameters [dist] )
   (play [dist] (.getMean dist)))
+
+(defn arithmetic-mean [coll]
+  (if (empty? coll)
+    nil
+    (let [sum (reduce + 0 coll)
+          n (count coll)]
+      (/ sum n))))
+
+
+(Math/exp 3)
+(defn quantile-integrate
+  ([f d n]
+   (let [delta (/ 1.0 n)
+         grid (map (icdf d) (range delta 1 delta))
+         f_i (map f grid)]
+     (/ (reduce + 0 f_i) n))))
+
+(sample (normal 0 1))
+
+(def N (normal 0 1))
+(def sample-size 10000)
+(def draws (sort (sample N sample-size)))
+(def cdfs (map (cdf N) draws))
+(def zips (map vector (drop 1 cdfs) cdfs))
+(def deltas (map (fn [x] (- (first x) (second x))) zips))
+
+(sample (normal 0 1))
