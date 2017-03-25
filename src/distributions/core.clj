@@ -1,5 +1,9 @@
 (ns distributions.core
-  (:import (org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution NormalDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GammaDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution NormalDistribution ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution EnumeratedIntegerDistribution GeometricDistribution HypergeometricDistribution PascalDistribution PoissonDistribution UniformIntegerDistribution ZipfDistribution MultivariateNormalDistribution)))
+  (:require [clojure.core.matrix :refer :all]
+            [clojure.core.matrix.linear :as la])
+  (:import (org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution NormalDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GammaDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution NormalDistribution ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution EnumeratedIntegerDistribution GeometricDistribution HypergeometricDistribution PascalDistribution PoissonDistribution UniformIntegerDistribution ZipfDistribution)))
+
+(set-current-implementation :vectorz)
 
 (defn beta
   [alpha beta]
@@ -33,8 +37,8 @@
   [df1 df2]
   (new FDistribution df1 df2))
 (defn gamma
-  [shape scale]
-  (new GammaDistribution shape scale))
+  [shape rate]
+  (new GammaDistribution shape (/ 1 rate)))
 (defn geometric
   [p]
   (new GeometricDistribution p))
@@ -53,22 +57,29 @@
 (defn levy
   [location scale]
   (new LevyDistribution location scale))
-(defn logistic
+(defn logistic-distribution
   [location scale]
   (new LogisticDistribution location scale))
 (defn log-normal
   [scale shape]
   (new LogNormalDistribution scale shape))
-                                        ;(defn mvnormal)
 (defn nakagami
   [shape spread]
   (new NakagamiDistribution shape spread))
 (defn negative-binomial
   [r p]
   (new PascalDistribution r p))
+(defrecord MultivariateNormalDistribution [mean variance])
+(defn mvnormal
+  ([mean variance]
+   (MultivariateNormalDistribution. mean variance))
+  ([variance]
+   (let [n (column-count variance)
+         mean (zero-vector n)]
+     (mvnormal mean variance))))
 (defn normal
-  [location scale]
-  (new NormalDistribution location scale))
+  [mean variance]
+  (new NormalDistribution mean (Math/sqrt variance)))
 (defn pareto
   [scale shape]
   (new ParetoDistribution scale shape))
@@ -78,9 +89,12 @@
 (defn poisson
   [mean]
   (new PoissonDistribution mean))
+(defrecord LSTDistribution [location scale df])
 (defn t-distribution
-  [df]
-  (new TDistribution df))
+  ([df]
+   (new TDistribution df))
+  ([location scale df]
+   (LSTDistribution. location scale df)))
 (defn triangular
   [a c b]
   (new TriangularDistribution a c b))
@@ -120,7 +134,31 @@
     ([d] (fn [x] (pdf d x))))
   (log-pdf
     ([d x] (.logDensity d x))
-    ([d] (fn [x] (log-pdf d x)))))
+    ([d] (fn [x] (log-pdf d x))))
+  LSTDistribution
+  (pdf
+    ([d x] (/ (pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (:scale d)))
+    ([d] (fn [x] (pdf d x))))
+  (log-pdf
+    ([d x] (- (log-pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (Math/log (:scale d)) ))
+    ([d] (fn [x] (log-pdf d x))))
+  MultivariateNormalDistribution
+  (log-pdf
+    ([d x]
+     (let [mean-vector (:mean d)
+           cov-matrix (:variance d)
+           n (ecount x)
+           residual (sub x mean-vector)
+           exponent (* 0.5 (dot residual (mmul (inverse cov-matrix) residual)))
+           normalizer (+ (* 0.5 (log (det cov-matrix)))
+                         (* n 0.5 (log (* 2 Math/PI))))]
+       (negate (+ normalizer exponent))
+       ))
+    ([d] (fn [x] (log-pdf d x))))
+  (pdf
+    ([d x] (Math/exp (log-pdf d x)))
+    ([d] (fn [x] (pdf d x))))
+  )
 
 (defprotocol mass-function
   (pmf [d] [d x])
@@ -163,20 +201,25 @@
   (icdf
     ([d] (fn [x] (.inverseCumulativeProbability d x)))
     ([d x] (.inverseCumulativeProbability d x)))
+  LSTDistribution
+  (icdf
+    ([d x] (+ (:location d) (* (:scale d) (.inverseCumulativeProbability (new TDistribution (:df d)) x))))
+    ([d] (fn [x] (icdf d x)))
+    )
   )
 
 (defprotocol support
-  (support [d])
+  (support-interval [d])
   (support-lower [d])
   (support-upper [d])
   )
 (extend-protocol support
   IntegerDistribution
-  (support [d] [(support-lower d) (support-upper d)])
+  (support-interval [d] [(support-lower d) (support-upper d)])
   (support-lower [d] (.getSupportLowerBound d))
   (support-upper [d] (.getSupportUpperBound d))
   RealDistribution
-  (support [d] [(support-lower d) (support-upper d)])
+  (support-interval [d] [(support-lower d) (support-upper d)])
   (support-lower [d] (.getSupportLowerBound d))
   (support-upper [d] (.getSupportUpperBound d))
   )
@@ -184,15 +227,32 @@
 (defprotocol first-moment
   (mean [d]))
 (extend-protocol first-moment
+  clojure.lang.Sequential
+  (mean [coll] (if (empty? coll)
+              nil
+              (let [sum (reduce + coll)
+                    n (count coll)]
+                (/ sum n))))
   IntegerDistribution
   (mean [d] (.getNumericalMean d))
   RealDistribution
   (mean [d] (.getNumericalMean d))
+  MultivariateNormalDistribution
+  (mean [d] (:mean d))
   )
+
+(defn square [x] (* x x))
+(defn negate [x] (* -1 x))
+(def probit (cdf (normal 0 1)))
 
 (defprotocol second-central-moment
   (variance [d]))
 (extend-protocol second-central-moment
+  clojure.lang.Sequential
+  (variance [coll] (if (empty? coll)
+                 nil
+                 (let [mu (mean coll)]
+                   (mean (map (fn [x] (square (- x mu))) coll)))))
   IntegerDistribution
   (variance [d] (.getNumericalVariance d))
   RealDistribution
@@ -210,37 +270,55 @@
   (sample
     ([d] (.sample d))
     ([d n] (take n (repeatedly #(sample d)))))
+  LSTDistribution
+  (sample
+    ([d] (+ (:location d) (* (:scale d) (sample (new TDistribution (:df d))))))
+    ([d n] (take n (repeatedly #(sample d)))))
+  MultivariateNormalDistribution
+  (sample
+    ([d]
+     (let [cov-matrix (:variance d)
+           mean-vector (:mean d)
+           ncols (column-count cov-matrix)
+           z (sample (normal 0 1) ncols)
+           d (la/svd cov-matrix)
+           {U :U S :S V* :V*} (la/svd cov-matrix)
+           D (diagonal-matrix (map (fn [x] (sqrt (max x 0))) S))]
+       (add mean-vector (mmul U D z))))
+    ([d n] (take n (repeatedly #(sample d)))))
   )
 
+(defn expectation
+  ([h d n]
+   (mean (map h (sample d n))))
+  ([h d]
+   (expectation h d 10000)))
 
+(defn kullback-leibler
+  ([f g n]
+   (let [h (fn [x] (- (log-pdf f x) (log-pdf g x)))]
+     (expectation h f n)))
+  ([f g]
+   (kullback-leibler f g 10000)))
 
-(defprotocol exponential-family
-  (natural-parameters [dist] )
-  (play [dist] (.getMean dist)))
+(defn expectation-qi
+  ([h d n]
+   (let [delta (/ 1.0 n)
+         grid (map (icdf d) (range delta 1 delta))]
+     (mean (map h grid))))
+  ([h d]
+   (expectation-qi h d 10000)))
 
-(defn arithmetic-mean [coll]
-  (if (empty? coll)
-    nil
-    (let [sum (reduce + 0 coll)
-          n (count coll)]
-      (/ sum n))))
+(defn kullback-leibler-qi
+  ([f g n]
+   (let [h (fn [x] (- (log-pdf f x) (log-pdf g x)))]
+     (expectation-qi h f n)))
+  ([f g]
+   (kullback-leibler-qi 10000)))
 
-
-(Math/exp 3)
 (defn quantile-integrate
   ([f d n]
    (let [delta (/ 1.0 n)
          grid (map (icdf d) (range delta 1 delta))
          f_i (map f grid)]
      (/ (reduce + 0 f_i) n))))
-
-(sample (normal 0 1))
-
-(def N (normal 0 1))
-(def sample-size 10000)
-(def draws (sort (sample N sample-size)))
-(def cdfs (map (cdf N) draws))
-(def zips (map vector (drop 1 cdfs) cdfs))
-(def deltas (map (fn [x] (- (first x) (second x))) zips))
-
-(sample (normal 0 1))
