@@ -241,8 +241,6 @@
   (mean [d] (:mean d))
   )
 
-(defn square [x] (* x x))
-(defn negate [x] (* -1 x))
 (def probit (cdf (normal 0 1)))
 
 (defprotocol second-central-moment
