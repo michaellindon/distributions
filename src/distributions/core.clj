@@ -41,8 +41,8 @@
   (new GammaDistribution shape (/ 1 rate)))
 (defrecord GeneralizedDoubleParetoDistribution [shape scale])
 (defn gdp
-  [shape scale]
-  (GeneralizedDoubleParetoDistribution. shape scale))
+  [scale shape]
+  (GeneralizedDoubleParetoDistribution. scale shape))
 (defn geometric
   [p]
   (new GeometricDistribution p))
