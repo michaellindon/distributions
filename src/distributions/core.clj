@@ -31,14 +31,18 @@
         p-double (double-array p)]
     (new EnumeratedIntegerDistribution x-int p-double)))
 (defn exponential
-  [mean]
-  (new ExponentialDistribution mean))
+  [rate]
+  (new ExponentialDistribution (/ 1 rate)))
 (defn f-distribution
   [df1 df2]
   (new FDistribution df1 df2))
 (defn gamma
   [shape rate]
   (new GammaDistribution shape (/ 1 rate)))
+(defrecord GeneralizedDoubleParetoDistribution [shape scale])
+(defn gdp
+  [shape scale]
+  (GeneralizedDoubleParetoDistribution. shape scale))
 (defn geometric
   [p]
   (new GeometricDistribution p))
@@ -49,11 +53,11 @@
   [population-size number-successes sample-size]
   (new HypergeometricDistribution population-size number-successes sample-size))
 (defn laplace
-  [location scale]
-  (new LaplaceDistribution location scale))
+  [location rate]
+  (new LaplaceDistribution location (/ 1 rate)))
 (defn double-exponential
-  [location scale]
-  (laplace location scale))
+  [location rate]
+  (laplace location rate))
 (defn levy
   [location scale]
   (new LevyDistribution location scale))
@@ -79,7 +83,7 @@
      (mvnormal mean variance))))
 (defn normal
   [mean variance]
-  (new NormalDistribution mean (Math/sqrt variance)))
+  (new NormalDistribution mean (sqrt variance)))
 (defn pareto
   [scale shape]
   (new ParetoDistribution scale shape))
@@ -122,8 +126,12 @@
   (P
     ([d] (fn [x] (.probability d x)))
     ([d x] (.probability d x)))
+  GeneralizedDoubleParetoDistribution
+  (P
+    ([d] (fn [x] 0))
+    ([d x] 0)
+    )
   )
-
 (defprotocol density-function
   (pdf [d] [d x])
   (log-pdf [d] [d x]))
@@ -140,7 +148,7 @@
     ([d x] (/ (pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (:scale d)))
     ([d] (fn [x] (pdf d x))))
   (log-pdf
-    ([d x] (- (log-pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (Math/log (:scale d)) ))
+    ([d x] (- (log-pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (log (:scale d)) ))
     ([d] (fn [x] (log-pdf d x))))
   MultivariateNormalDistribution
   (log-pdf
@@ -156,8 +164,18 @@
        ))
     ([d] (fn [x] (log-pdf d x))))
   (pdf
-    ([d x] (Math/exp (log-pdf d x)))
+    ([d x] (exp (log-pdf d x)))
     ([d] (fn [x] (pdf d x))))
+  GeneralizedDoubleParetoDistribution
+  (pdf
+    ([d x] (exp (log-pdf d x)))
+    ([d] (fn [x] (pdf d x))))
+  (log-pdf
+    ([d x]
+     (let [shape (:shape d)
+           scale (:scale d)]
+       (- (log 0.5) (log scale) (* (inc shape) (log (inc (/ (abs x) (* shape scale)) ))))))
+    ([d] (fn [x] (log-pdf d x))))
   )
 
 (defprotocol mass-function
@@ -243,6 +261,15 @@
 
 (def probit (cdf (normal 0 1)))
 
+(defprotocol location-scale
+  (rate [d])
+  (location [d]))
+(extend-protocol location-scale
+  RealDistribution
+  (rate [d] (/ 1 (.getScale d)))
+  (location [d] (.getLocation d))
+  )
+
 (defprotocol second-central-moment
   (variance [d]))
 (extend-protocol second-central-moment
@@ -256,6 +283,32 @@
   RealDistribution
   (variance [d] (.getNumericalVariance d))
   )
+
+(defn inv [x] (/ 1 x))
+
+(defprotocol proximal
+  (prox [d] [d h x]))
+(extend-protocol proximal
+  NormalDistribution
+  (prox
+    ([d] (fn [h x] (* x (/ (inv h) (+ (inv h) (inv (variance d)))))))
+    ([d h x] ((prox d) h x)))
+  LaplaceDistribution
+  (prox
+    ([d] (fn [h x] (* (signum x) (max 0.0 (- (abs x) (* h (rate d)))))))
+    ([d h x] ((prox d) h x)))
+  GeneralizedDoubleParetoDistribution
+  (prox
+    ([d]
+     (let [shape (:shape d)
+           scale (:scale d)]
+       (fn [h x]
+         (let [g (* h (inc shape))
+               a (* shape scale)
+               d (max 0 (- (* a (abs x)) g))]
+           (* 0.5 (signum x) (+ (abs x) (negate a) (sqrt (+ (* 4 d) (square (- a (abs x)))))))))))
+    ([d h x]
+     ((prox d) h x))))
 
 (defprotocol random
   (sample [d] [d n]))
@@ -283,6 +336,16 @@
            {U :U S :S V* :V*} (la/svd cov-matrix)
            D (diagonal-matrix (map (fn [x] (sqrt (max x 0))) S))]
        (add mean-vector (mmul U D z))))
+    ([d n] (take n (repeatedly #(sample d)))))
+  GeneralizedDoubleParetoDistribution
+  (sample
+    ([d]
+     (let [shape (:shape d)
+           scale (:scale d)
+           eta (* shape scale)
+           lambda (sample (gamma shape eta))
+           tau (sample (exponential (/ (square lambda) 2)))]
+       (sample (normal 0 tau))))
     ([d n] (take n (repeatedly #(sample d)))))
   )
 
@@ -320,3 +383,5 @@
          grid (map (icdf d) (range delta 1 delta))
          f_i (map f grid)]
      (/ (reduce + 0 f_i) n))))
+
+
