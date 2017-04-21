@@ -1,4 +1,4 @@
-(defproject distributions "0.1.0-SNAPSHOT"
+(defproject distributions "0.1.1"
   :description "Statistical Distributions for Clojure"
   :url "https://github.com/michaellindon/distributions"
   :license {:name "Eclipse Public License"

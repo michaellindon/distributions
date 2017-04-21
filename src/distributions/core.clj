@@ -4,6 +4,7 @@
   (:import (org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution NormalDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GammaDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution NormalDistribution ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution EnumeratedIntegerDistribution GeometricDistribution HypergeometricDistribution PascalDistribution PoissonDistribution UniformIntegerDistribution ZipfDistribution)))
 
 (set-current-implementation :vectorz)
+(defn probit [x] (.cumulativeProbability (new NormalDistribution 0 1) x))
 
 (defn beta
   [alpha beta]
@@ -11,6 +12,9 @@
 (defn binomial
   [n p]
   (new BinomialDistribution n p))
+(defn bernoulli
+  [p]
+  (binomial 1 p))
 (defn cauchy
   [location scale]
   (new CauchyDistribution location scale))
@@ -40,6 +44,10 @@
   [shape rate]
   (new GammaDistribution shape (/ 1 rate)))
 (defrecord GeneralizedDoubleParetoDistribution [scale shape])
+(defrecord InverseGaussianDistribution [mean shape])
+(defn inverse-gaussian
+  [mean shape]
+  (InverseGaussianDistribution. mean shape))
 (defn gdp
   [scale shape]
   (GeneralizedDoubleParetoDistribution. scale shape))
@@ -74,6 +82,9 @@
   [r p]
   (new PascalDistribution r p))
 (defrecord MultivariateNormalDistribution [mean variance])
+(defrecord MixtureDistribution [components probabilities])
+(defn mixture [components probabilities]
+  (MixtureDistribution. components probabilities))
 (defn mvnormal
   ([mean variance]
    (MultivariateNormalDistribution. mean variance))
@@ -105,7 +116,7 @@
 (defn uniform-integer
   [lower upper]
   (new UniformIntegerDistribution lower upper))
-(defn uniform-real
+(defn uniform
   [lower upper]
   (new UniformRealDistribution lower upper))
 (defn weibull
@@ -126,12 +137,18 @@
   (P
     ([d] (fn [x] (.probability d x)))
     ([d x] (.probability d x)))
+  InverseGaussianDistribution
+  (P
+    ([d] (fn [x] 0))
+    ([d x] 0)
+    )
   GeneralizedDoubleParetoDistribution
   (P
     ([d] (fn [x] 0))
     ([d x] 0)
     )
   )
+
 (defprotocol density-function
   (pdf [d] [d x])
   (log-pdf [d] [d x]))
@@ -150,6 +167,13 @@
   (log-pdf
     ([d x] (- (log-pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (log (:scale d)) ))
     ([d] (fn [x] (log-pdf d x))))
+  MixtureDistribution
+  (pdf
+    ([d x] (reduce + 0 (map (fn [c p] (* p (pdf c x))) (:components d) (:probabilities d))))
+    ([d] (fn [x] (pdf d x))))
+  (log-pdf
+    ([d x] (log (pdf d x)))
+    ([d] (fn [x] (log-pdf d x))))
   MultivariateNormalDistribution
   (log-pdf
     ([d x]
@@ -166,6 +190,21 @@
   (pdf
     ([d x] (exp (log-pdf d x)))
     ([d] (fn [x] (pdf d x))))
+  InverseGaussianDistribution
+  (pdf
+    ([d x] (exp (log-pdf d x)))
+    ([d] (fn [x] (pdf d x))))
+  (log-pdf
+    ([d x]
+     (let [shape (:shape d)
+           mean (:mean d)]
+       (* 0.5 (+ (log shape)
+                 (negate (log (* 2 Math/PI x x x)))
+                 (negate
+                  (/
+                   (* shape (square (- x mean)))
+                   (* mean mean x)))))))
+    ([d] (fn [x] (log-pdf d x))))
   GeneralizedDoubleParetoDistribution
   (pdf
     ([d x] (exp (log-pdf d x)))
@@ -195,6 +234,7 @@
     ([d] (fn [x] (log-pmf d x))))
   )
 
+
 (defprotocol distribution-function
   (cdf [d] [d x]))
 (extend-protocol distribution-function
@@ -206,6 +246,21 @@
   (cdf
     ([d] (fn [x] (.cumulativeProbability d x)))
     ([d x] (.cumulativeProbability d x)))
+  MixtureDistribution
+  (cdf
+    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d x] (reduce + 0 (map (fn [c p] (* p (cdf c x))) (:components d) (:probabilities d)))))
+  InverseGaussianDistribution
+  (cdf
+    ([d] (fn [x] (cdf d x)))
+    ([d x]
+     (let [shape (:shape d)
+           mean (:mean d)]
+       (+
+        (probit (* (sqrt (/ shape x)) (dec (/ x mean))))
+        (*
+         (exp (* 2 (/ shape mean)))
+         (probit (negate (* (sqrt (/ shape x)) (inc (/ x mean))))))))))
   )
 
 (defprotocol inverse-distribution-function
@@ -240,6 +295,14 @@
   (support-interval [d] [(support-lower d) (support-upper d)])
   (support-lower [d] (.getSupportLowerBound d))
   (support-upper [d] (.getSupportUpperBound d))
+  MixtureDistribution
+  (support-interval [d] [(support-lower d) (support-upper d)])
+  (support-lower [d] (reduce min (map support-lower (:components d))))
+  (support-upper [d] (reduce max (map support-upper (:components d))))
+  InverseGaussianDistribution
+  (support-interval [d] [(support-lower d) (support-upper d)])
+  (support-lower [d] 0)
+  (support-upper [d] Double/POSITIVE_INFINITY)
   )
 
 (defprotocol first-moment
@@ -255,11 +318,14 @@
   (mean [d] (.getNumericalMean d))
   RealDistribution
   (mean [d] (.getNumericalMean d))
+  InverseGaussianDistribution
+  (mean [d] (:mean d))
   MultivariateNormalDistribution
   (mean [d] (:mean d))
+  MixtureDistribution
+  (mean [d] (reduce + (map (fn [c p] (* p (mean c))) (:components d) (:probabilities d))))
   )
 
-(def probit (cdf (normal 0 1)))
 
 (defprotocol location-scale
   (rate [d])
@@ -282,6 +348,12 @@
   (variance [d] (.getNumericalVariance d))
   RealDistribution
   (variance [d] (.getNumericalVariance d))
+  InverseGaussianDistribution
+  (variance [d] (/ (pow (:mean d) 3) (:shape d)))
+  MixtureDistribution
+  (variance [d]
+    (let [mu (mean d)]
+      (map (fn [c p] (* p (+ (variance c) (square (- (mean c) mu))))) (:components d) (:probabilities d))))
   )
 
 (defn inv [x] (/ 1 x))
@@ -337,6 +409,26 @@
            D (diagonal-matrix (map (fn [x] (sqrt (max x 0))) S))]
        (add mean-vector (mmul U D z))))
     ([d n] (take n (repeatedly #(sample d)))))
+  clojure.lang.LazySeq
+  (sample
+    ([d] (first (take 1 d)))
+    ([d n] (take n d)))
+  InverseGaussianDistribution
+  (sample
+    ([d]
+     (let [shape (:shape d)
+           mean (:mean d)
+           v (sample (normal 0 1))
+           y (square v)
+           x (+ mean
+                (* 0.5 (square mean) (/ y shape))
+                (negate
+                 (* 0.5
+                    (/ mean shape)
+                    (sqrt (+ (* 4 mean shape y) (* (square mean) (square y)))))))
+           z (sample (uniform 0 1))]
+       (if (< z (/ mean (+ mean x))) x (/ (square mean) x))))
+    ([d n] (take n (repeatedly #(sample d)))))
   GeneralizedDoubleParetoDistribution
   (sample
     ([d]
@@ -347,7 +439,17 @@
            tau (sample (exponential (/ (square lambda) 2)))]
        (sample (normal 0 tau))))
     ([d n] (take n (repeatedly #(sample d)))))
+  MixtureDistribution
+  (sample
+    ([d]
+     (let [weights (:probabilities d)
+           components (:components d)
+           n (count weights)
+           i (sample (discrete-integer (range 0 n) weights))]
+       (sample (get components i))))
+    ([d n] (take n (repeatedly #(sample d)))))
   )
+
 
 (defn expectation
   ([h d n]
@@ -385,3 +487,54 @@
      (/ (reduce + 0 f_i) n))))
 
 
+(defn mh-step
+  ([target proposal x-old] (mh-step target proposal x-old false))
+  ([target proposal x-old log-target?]
+   (let [x-new (sample (proposal x-old))
+         log-target (if log-target? target #(log (target %)))
+         acc-prob (min 1 (exp (+ (log-target x-new)
+                                 (negate (log-target x-old))
+                                 (log-pdf (proposal x-new) x-old)
+                                 (negate (log-pdf (proposal x-old) x-new)))))]
+     (if (= 1 (sample (bernoulli acc-prob))) x-new x-old))))
+
+(defn metropolis-hastings
+  ([target proposal x-old] (metropolis-hastings target proposal x-old false))
+  ([target proposal x-old log-target?]
+   (let [mh-iterator #(mh-step target proposal % log-target?)]
+     (drop 1 (iterate mh-iterator x-old)))))
+
+(defn slice-step
+  "Sample a univariate unnormalized log-density g from position x with length L"
+  [g w x]
+  (let [y (+ (g x) (negate (sample (exponential 1))))
+        u (sample (uniform 0 1))
+        lower-bound (first (filter (fn [x] (< (g x) y))
+                                   (iterate  (fn [x] (- x w))
+                                             (- x (* u w)))))
+        upper-bound (first (filter (fn [x] (< (g x) y))
+                                   (iterate (fn [x] (+ x w))
+                                            (+ x (* (- 1 u) w)))))]
+    (loop [l lower-bound
+           u upper-bound]
+      (let [z (sample (uniform l u))]
+        (cond
+          (> (g z) y) z
+          (> z x) (recur l z)
+          :else (recur z u))))))
+
+(defn slice-sampler
+  ([target width seed]
+   (slice target width seed false))
+  ([target width seed log-target?]
+   (let [log-target (if log-target? target #(log (target %)))
+         slice-iterator (partial slice-step log-target width)]
+     (drop 1 (iterate slice-iterator seed)))))
+
+(defn accept-reject [f g c]
+  (let [x (repeatedly #(sample g))
+        u (map #(sample (uniform 0 (* c (pdf g %)) )) x)
+        ux (map vector x u)]
+    (map first (filter (fn [[x u]] (< u (f x))) ux))))
+
+(log-pdf (mixture [(normal 0 0.001) (normal -3 0.001) (normal 3 0.001)] [1/3 1/3 1/3]) 3)
