@@ -7,4 +7,6 @@
                  [net.mikera/core.matrix "0.57.0"]
                  [net.mikera/vectorz-clj "0.45.0"]
                  [org.apache.commons/commons-math3 "3.6.1"]
+                 [org.rosuda.REngine/REngine "2.1.0"]
+                 [org.rosuda.REngine/Rserve "1.8.1"]
                  ])

@@ -5,6 +5,46 @@
 
 (set-current-implementation :vectorz)
 (defn probit [x] (.cumulativeProbability (new NormalDistribution 0 1) x))
+(defn inv [x] (/ 1 x))
+
+(defn bisection
+  ([f a b]
+   (bisection f a b (* 100 (java.lang.Math/ulp 1.0))))
+  ([f a b eps]
+   (loop [l a
+          u b
+          fl (f l)
+          fu (f u)]
+     (let [m (* 0.5 (+ l u))
+           fm (f m)]
+       (if (< (abs fm) eps)
+         m
+         (if (= (signum fm) (signum fl)) (recur m u fm fu) (recur l m fl fm)))))))
+
+(bisection (fn [x] (- (exp x) 10)) -10 10)
+(- (exp 2.302) 10)
+
+(defn newton-raphson-step [f f' x] (- x (/ (f x) (f' x))))
+
+(defn secant-step [f [x-1 x-2]] [(- x-1 (* (f x-1) (/ (- x-1 x-2) (- (f x-1) (f x-2))))) x-1])
+
+(defn secant
+  ([f x0 x1]
+   (secant f x0 x1 (java.lang.Math/ulp 1.0)))
+  ([f x0 x1 eps]
+   (let [g (memoize f)
+         s-iterator (partial secant-step g)
+         s-stream (iterate s-iterator [x1 x0])]
+     (first (first (drop-while #(> (abs (f (first %))) eps) s-stream))))))
+
+(defn newton-raphson
+  ([f f' initial-x]
+   (newton-raphson f f' initial-x (java.lang.Math/ulp 1.0)))
+  ([f f' initial-x eps]
+   (let [nr-iterator (partial newton-raphson-step f f')
+         nr-stream (iterate nr-iterator initial-x)]
+     (first (drop-while #(> (abs (f %)) eps) nr-stream))))
+  )
 
 (defn beta
   [alpha beta]
@@ -81,6 +121,9 @@
 (defn negative-binomial
   [r p]
   (new PascalDistribution r p))
+(defrecord TruncatedDistribution [distribution lower upper F-lower F-upper])
+(defn truncated [distribution lower upper]
+  (TruncatedDistribution. distribution lower upper (cdf distribution lower) (cdf distribution upper)))
 (defrecord MultivariateNormalDistribution [mean variance])
 (defrecord MixtureDistribution [components probabilities])
 (defn mixture [components probabilities]
@@ -167,6 +210,19 @@
   (log-pdf
     ([d x] (- (log-pdf (new TDistribution (:df d)) (/ (- x (:location d)) (:scale d))) (log (:scale d)) ))
     ([d] (fn [x] (log-pdf d x))))
+  TruncatedDistribution
+  (pdf
+    ([d x]
+     (if (or (> x (:upper d)) (< x (:lower d)))
+       0
+       (/ (pdf (:distribution d) x) (- (:F-upper d) (:F-lower d)))))
+    ([d] (fn [x] (pdf d x))))
+  (log-pdf
+    ([d x]
+     (if (or (> x (:upper d)) (< x (:lower d)))
+       Double/NEGATIVE_INFINITY
+       (- (log-pdf (:distribution d) x) (log (- (:F-upper d) (:F-lower d))))))
+    ([d] (fn [x] (log-pdf d x))))
   MixtureDistribution
   (pdf
     ([d x] (reduce + 0 (map (fn [c p] (* p (pdf c x))) (:components d) (:probabilities d))))
@@ -196,14 +252,16 @@
     ([d] (fn [x] (pdf d x))))
   (log-pdf
     ([d x]
-     (let [shape (:shape d)
-           mean (:mean d)]
-       (* 0.5 (+ (log shape)
-                 (negate (log (* 2 Math/PI x x x)))
-                 (negate
-                  (/
-                   (* shape (square (- x mean)))
-                   (* mean mean x)))))))
+     (if (<= x 0)
+       Double/NEGATIVE_INFINITY
+       (let [shape (:shape d)
+             mean (:mean d)]
+         (* 0.5 (+ (log shape)
+                   (negate (log (* 2 Math/PI x x x)))
+                   (negate
+                    (/
+                     (* shape (square (- x mean)))
+                     (* mean mean x))))))))
     ([d] (fn [x] (log-pdf d x))))
   GeneralizedDoubleParetoDistribution
   (pdf
@@ -246,6 +304,14 @@
   (cdf
     ([d] (fn [x] (.cumulativeProbability d x)))
     ([d x] (.cumulativeProbability d x)))
+  TruncatedDistribution
+  (cdf
+    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d x]
+     (cond
+       (> x (:upper d)) 1.0
+       (< x (:lower d)) 0.0
+       :else (/ (- (cdf (:distribution d) x) (:F-lower d)) (- (:F-upper d) (:F-lower d))))))
   MixtureDistribution
   (cdf
     ([d] (fn [x] (.cumulativeProbability d x)))
@@ -254,31 +320,15 @@
   (cdf
     ([d] (fn [x] (cdf d x)))
     ([d x]
-     (let [shape (:shape d)
-           mean (:mean d)]
-       (+
-        (probit (* (sqrt (/ shape x)) (dec (/ x mean))))
-        (*
-         (exp (* 2 (/ shape mean)))
-         (probit (negate (* (sqrt (/ shape x)) (inc (/ x mean))))))))))
-  )
-
-(defprotocol inverse-distribution-function
-  (icdf [d] [d x]))
-(extend-protocol inverse-distribution-function
-  IntegerDistribution
-  (icdf
-    ([d] (fn [x] (.inverseCumulativeProbability d x)))
-    ([d x] (.inverseCumulativeProbability d x)))
-  RealDistribution
-  (icdf
-    ([d] (fn [x] (.inverseCumulativeProbability d x)))
-    ([d x] (.inverseCumulativeProbability d x)))
-  LSTDistribution
-  (icdf
-    ([d x] (+ (:location d) (* (:scale d) (.inverseCumulativeProbability (new TDistribution (:df d)) x))))
-    ([d] (fn [x] (icdf d x)))
-    )
+     (if (<= x 0)
+       0
+       (let [shape (:shape d)
+             mean (:mean d)]
+         (+
+          (probit (* (sqrt (/ shape x)) (dec (/ x mean))))
+          (*
+           (exp (* 2 (/ shape mean)))
+           (probit (negate (* (sqrt (/ shape x)) (inc (/ x mean)))))))))))
   )
 
 (defprotocol support
@@ -299,11 +349,52 @@
   (support-interval [d] [(support-lower d) (support-upper d)])
   (support-lower [d] (reduce min (map support-lower (:components d))))
   (support-upper [d] (reduce max (map support-upper (:components d))))
+  TruncatedDistribution
+  (support-interval [d] [(support-lower d) (support-upper d)])
+  (support-lower [d] (:lower d))
+  (support-upper [d] (:upper d))
   InverseGaussianDistribution
   (support-interval [d] [(support-lower d) (support-upper d)])
   (support-lower [d] 0)
   (support-upper [d] Double/POSITIVE_INFINITY)
   )
+
+(defprotocol inverse-distribution-function
+  (icdf [d] [d x]))
+(extend-protocol inverse-distribution-function
+  IntegerDistribution
+  (icdf
+    ([d] (fn [x] (.inverseCumulativeProbability d x)))
+    ([d x] (.inverseCumulativeProbability d x)))
+  RealDistribution
+  (icdf
+    ([d] (fn [x] (.inverseCumulativeProbability d x)))
+    ([d x] (.inverseCumulativeProbability d x)))
+  TruncatedDistribution
+  (icdf
+    ([d] (fn [x] (icdf d x)))
+    ([d x]
+     (let [base (:distribution d)
+           Fa (:F-lower d)
+           Fb (:F-upper d)]
+       (icdf base (+ (* x (- Fb Fa)) Fa)))))
+  Object
+  (icdf
+    ([d] (fn [x] (icdf d x)))
+    ([d x]
+     (let [f #(- (cdf d %) x)
+           w 1 ;(std d)
+           m 0 ;(mean d)
+           a (max (support-lower d) (first (drop-while #(> (f %) 0) (iterate #(- % w) m))))
+           b (min (support-upper d) (first (drop-while #(< (f %) 0) (iterate #(+ % w) m))))]
+       (bisection f a b))))
+  LSTDistribution
+  (icdf
+    ([d x] (+ (:location d) (* (:scale d) (.inverseCumulativeProbability (new TDistribution (:df d)) x))))
+    ([d] (fn [x] (icdf d x)))
+    )
+  )
+
 
 (defprotocol first-moment
   (mean [d]))
@@ -356,7 +447,11 @@
       (map (fn [c p] (* p (+ (variance c) (square (- (mean c) mu))))) (:components d) (:probabilities d))))
   )
 
-(defn inv [x] (/ 1 x))
+(defprotocol standard-deviation
+  (std [d]))
+(extend-protocol standard-deviation
+  Object
+  (std [d] (sqrt (variance d))))
 
 (defprotocol proximal
   (prox [d] [d h x]))
@@ -448,6 +543,10 @@
            i (sample (discrete-integer (range 0 n) weights))]
        (sample (get components i))))
     ([d n] (take n (repeatedly #(sample d)))))
+  Object
+  (sample
+    ([d] (icdf d (sample (uniform 0 1))))
+    ([d n] (take n (repeatedly #(sample d)))))
   )
 
 
@@ -537,4 +636,172 @@
         ux (map vector x u)]
     (map first (filter (fn [[x u]] (< u (f x))) ux))))
 
+
+(java.lang.Math/ulp 1.0)
+(newton-raphson #(* % %) #(* 2 %) 5)
+(secant #(* % %) 1 2)
+(cdf (normal 0 3) (newton-raphson #(- (cdf (normal 0 3) %) 0.1) #(pdf (normal 0 3) %) 0))
+(cdf (exponential 10) (icdf (exponential 10) 0.01))
+(cdf (inverse-gaussian 3 3) (icdf (inverse-gaussian 3 3) 0.8))
+(icdf (inverse-gaussian 3 3) (cdf (inverse-gaussian 3 3) 0.01))
+(time (secant #(- (cdf (normal 0 3) %) 0.1) 0 0.1))
+(icdf (normal 0 3) 0.1)
+(cdf (inverse-gaussian 3 1) (icdf (inverse-gaussian 3 1) 0.1))
+(mean (inverse-gaussian 3 3))
+(cdf (truncated (normal 0 1) 0 1) (icdf (truncated (normal 0 1) 0 1) 0.99))
+
+(pdf (inverse-gaussian 3 1) (mean (inverse-gaussian 3 1)))
+(newton-raphson #(- (cdf (inverse-gaussian 3 1) %) 0.1) #(pdf (inverse-gaussian 3 1) %) (mean (inverse-gaussian 3 1)))
 (log-pdf (mixture [(normal 0 0.001) (normal -3 0.001) (normal 3 0.001)] [1/3 1/3 1/3]) 3)
+
+(def d (truncated (normal 0 1) 0 1 ))
+(cdf d (bisection #(- (cdf d %) 0.4) 0 10))
+(bisection #(- (cdf d %) 0.7) 0.01 9.99)
+(cdf d (icdf d 0.99))
+(icdf d 0.9999999)
+(pdf d 4)
+(log-pdf d 12)
+(< 0 10)
+
+(sample d 100)
+
+(cdf (truncated (normal 0 1) 0 3) 300)
+(icdf (truncated (normal 0 1) 0 3) 0.9)
+
+
+(def the-d (mixture [(normal 0 0.1) (normal -3 0.1) (normal 3 0.1)] [1/3 1/3 1/3]))
+(def g-dat {:g1 (sample the-d 10000)})
+
+(gg4clj/render [[:<- :g (gg4clj/data-frame g-dat)]
+                (gg4clj/r+
+                 [:ggplot :g [:aes :g1 :g2]]
+                 [:xlim -2 2]
+                 [:ylim -2 2]
+                 [:geom_point {:colour "steelblue" :size 2}]
+                 [:stat_density2d {:colour "#FF29D2"}]
+                 [:theme_bw])]
+               {:width 5 :height 5})
+
+(gg4clj/render [[:<- :g (gg4clj/data-frame g-dat)]
+                (gg4clj/r+
+                 [:ggplot :g [:aes :g1]]
+                 [:geom_density {:adjust 1 :colour "steelblue"}]
+                 [:theme_bw]
+                 [:stat_function {:function exp}]
+                 )]
+               {:width 5 :height 5})
+
+(def foo (sample (normal 0 1) 100))
+(gg4clj/render (gg4clj/to-r [:qplot foo]))
+(gg4clj/render [[:<- :g (gg4clj/data-frame g-dat)]
+              (gg4clj/r+
+               [:stat_function {:fun (pdf the-d) :colour "red"}]
+               )]
+             {:width 5 :height 5})
+
+(def foo (new org.rosuda.REngine.Rserve.RConnection))
+
+(defn randJ [z]
+  (let [t 0.64
+        ex (exponential (+ (* 0.5 (square z)) (/ (square Math/PI) 8)))
+        ig (inverse-gaussian (inv (abs z)) 1)
+        p (* 2 (cosh z) (exp (negate z)) (cdf ig t))
+        q (* 0.5 Math/PI (- 1 (cdf ex t)))
+        ig-prob (/ p (+ p q))
+        cg (fn [x] (*
+                    (* 0.5 Math/PI)
+                    (cosh z)
+                    (if (< x t)
+                      (* (pow (/ 2 (* x Math/PI)) 1.5) (exp (negate (* 0.5 (+ (/ 1 x) (* x (square z))))) ))
+                      (exp (+ (* 0.5 (square z)) (/ (square Math/PI) 8))))))
+        ]
+    (loop []
+      (let [X (sample (mixture [(truncated ig 0 t) (truncated ex t Double/POSITIVE_INFINITY)] [ig-prob (- 1 ig-prob)]))
+            U (sample (uniform 0 (cg X)))
+            stream (iterate (partial jacobi-iterator X z) [(jacobi-a X 0 z) 0])
+            S (first (drop-while (fn [[sn n]] (if (odd? n) (> U sn) (< U sn))) stream))]
+        ;(if (odd? (second S)) X (recur))
+        X
+        )
+      )
+    ))
+
+(truncated (inverse-gaussian 1 1) 0 0.64)
+
+(defn jacobi-a
+  ([x n z] (* (cosh z) (exp (negate (* z z 0.5 x))) (jacobi-a x n)))
+  ([x n]
+   (if (< x 0.64)
+     (* Math/PI (+ n 0.5) (pow (/ 2 (* x Math/PI)) 1.5) (exp (negate (/ (* 2 (square (+ n 0.5))) x))))
+     (* Math/PI (+ n 0.5) (exp (negate (* 0.5 x (square (* Math/PI (+ n 0.5)))))) )))
+  )
+
+(defn not-converged? [[[sn _] [sp _]]] (> (abs (- sn sp)) (java.lang.Math/ulp 1.0)))
+
+(def t 0.64)
+(defn jacobi-iterator [x z [s n]] [(if (even? n) (+ s (jacobi-a x (inc n) z)) (- s (jacobi-a x (inc n) z)) ) (inc n) z])
+(defn jacobi-density [z x]
+  (let [stream (iterate (partial jacobi-iterator x z) [(jacobi-a x 0 z) 0])
+        zip-stream (map vector (drop 1 stream) stream)]
+    (first (first (first (drop-while not-converged? zip-stream))))))
+
+(randJ 1)
+(def z 0.01)
+(defn jacobi-density [x] (first (last (take 100 (iterate jacobi-iterator [(jacobi-a x 0 z) 0 z])))))
+(take 3 (iterate jacobi-iterator [(jacobi-a t x 0) 0]))
+(jacobi-density 1)
+(qplot (range 0.01 4 0.01) (map (fn [x] (jacobi-density x 1.5)) (range 0.01 4 0.01)))
+(close-plot 2)
+
+(jacobi-a 0.64 0.3 4)
+(def t 0.64)
+(mixture [])
+
+
+(.eval foo "library(ggplot2)")
+(.eval foo "print(qplot(x=rnorm(100),y=rnorm(100)))")
+(.eval foo "x=print(ggplot(diamonds, aes(depth, fill = cut, colour = cut))+geom_density(alpha = 0.1))")
+(.eval foo "x=qplot(x=rnorm(100),y=rnorm(100))")
+(.eval foo "x+geom_density(alpha = 0.1)")
+(.eval foo "print(x + xlim(-200,200)+stat_function(fun=dnorm))")
+(.eval foo "dev.off()")
+(.eval foo "plot(x=rnorm(100),y=rnorm(100))")
+(.voidEval foo "bob <- 20")
+(.eval foo "ban")
+(.eval foo "{catty=ggplot(diamonds, aes(carat)) +
+  geom_density(); catty}")
+
+(take 2000 (repeatedly #(randJ 1.5)))
+
+(.assign foo "y" "bar")
+(.eval foo "x <- 1001")
+(.asString (.eval foo "y"))
+(.assign foo "bar" "e")
+(.get foo "bar")
+(def bar (double-array [1 2 3]))
+(.eval foo "plot(y)")
+(.eval foo "y <- 100*x")
+(vec (.asDoubles (.eval foo "y")))
+(.assign foo "x" (double-array (take 2000 (repeatedly #(randJ 1.5))) ))
+(.parseAndEval foo "print(qplot(x,geom=\"histogram\"))")
+(.toString (.asNativeJavaObject (first (.eval foo "print(x)"))))
+(defn qplot [x y]
+  (.eval foo "dev.new()")
+  (.assign foo "x" (double-array x))
+  (.assign foo "y" (double-array y))
+  (.eval foo "print(qplot(x,y))")
+  )
+
+(defn switch-plot [x]
+  (.eval foo (str "dev.set(" x ")")))
+(defn close-plot [x]
+  (.eval foo (str "dev.off(" x ")")))
+
+(cdf (inverse-gaussian 3 2) -0.1)
+(qplot (range 0 100) (map sin (range 0 100)))
+(switch-plot 3)
+
+
+(close-plot 3)
+(.eval foo "dev.off()")
+
