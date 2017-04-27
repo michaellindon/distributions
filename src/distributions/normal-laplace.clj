@@ -2,7 +2,7 @@
 
 (defn normal-laplace
   "N(x|mu, s2 gamma)Laplace(x| tau/s)"
-  [mu gamma tau s2]
+  [mu s2 gamma tau]
   (let [s (sqrt s2)
         mu+ (- mu (* gamma s tau))
         mu- (+ mu (* gamma s tau))
