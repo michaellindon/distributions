@@ -16,6 +16,7 @@
 (load "truncated")
 (load "location-scale")
 (load "t-distribution")
+(load "normal-laplace")
 
 (comment 
 (gg4clj/render [[:<- :g (gg4clj/data-frame g-dat)]
