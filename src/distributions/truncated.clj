@@ -8,13 +8,13 @@
   TruncatedDistribution
   (pdf
     ([d x]
-     (if (or (> x (:upper d)) (< x (:lower d)))
+     (if (or (> x (:upper d)) (<= x (:lower d)))
        0
        (/ (pdf (:distribution d) x) (- (:F-upper d) (:F-lower d)))))
     ([d] (fn [x] (pdf d x))))
   (log-pdf
     ([d x]
-     (if (or (> x (:upper d)) (< x (:lower d)))
+     (if (or (> x (:upper d)) (<= x (:lower d)))
        Double/NEGATIVE_INFINITY
        (- (log-pdf (:distribution d) x) (log (- (:F-upper d) (:F-lower d))))))
     ([d] (fn [x] (log-pdf d x)))))
@@ -26,7 +26,7 @@
     ([d x]
      (cond
        (> x (:upper d)) 1.0
-       (< x (:lower d)) 0.0
+       (<= x (:lower d)) 0.0
        :else (/ (- (cdf (:distribution d) x) (:F-lower d)) (- (:F-upper d) (:F-lower d)))))))
 
 (extend-protocol support
