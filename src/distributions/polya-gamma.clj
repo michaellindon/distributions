@@ -65,3 +65,10 @@
   (sample
     ([d] (* 0.25 (randJ (* 0.5 (:z d)))))
     ([d n] (take n (repeatedly #(sample d))))))
+
+
+
+(comment
+(defn naiverand [z]
+  (/ (reduce + (for [i (range 1 100)]
+                 (/ (sample (gamma 1 1)) (+ (square (/ z (* 2 Math/PI))) (square (- i 0.5)))))) (* 2 Math/PI Math/PI))))
