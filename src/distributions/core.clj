@@ -18,4 +18,5 @@
 (load "t-distribution")
 (load "normal-laplace")
 (load "polya-gamma")
+(load "integration")
 
