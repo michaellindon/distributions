@@ -1,36 +1,30 @@
 (ns distributions.integration)
 
+(defn expectation-mc [d n]
+  (let [draws (doall (sample d n))]
+    (fn [f]
+      (->> draws (map f) mean))))
+
+(defn expectation-qi [d n]
+  (let [delta (/ 1.0 n)
+        grid (doall (map (icdf d) (range delta 1 delta)))]
+    (fn [f]
+      (->> grid (map f) mean))))
+
 (defn expectation
-  ([h d n]
-   (mean (map h (sample d n))))
-  ([h d]
-   (expectation h d 10000)))
+  ([d & {:keys [n method]
+          :or {n 10000
+               method "monte-carlo"}}]
+   (case method
+     "monte-carlo" (expectation-mc d n)
+     "quantile-integration" (expectation-qi d n)
+     "Invalid method")))
 
-(defn kullback-leibler
-  ([f g n]
-   (let [h (fn [x] (- (log-pdf f x) (log-pdf g x)))]
-     (expectation h f n)))
-  ([f g]
-   (kullback-leibler f g 10000)))
-
-(defn expectation-qi
-  ([h d n]
-   (let [delta (/ 1.0 n)
-         grid (map (icdf d) (range delta 1 delta))]
-     (mean (map h grid))))
-  ([h d]
-   (expectation-qi h d 10000)))
-
-(defn kullback-leibler-qi
-  ([f g n]
-   (let [h (fn [x] (- (log-pdf f x) (log-pdf g x)))]
-     (expectation-qi h f n)))
-  ([f g]
-   (kullback-leibler-qi 10000)))
-
-(defn quantile-integrate
-  ([f d n]
-   (let [delta (/ 1.0 n)
-         grid (map (icdf d) (range delta 1 delta))
-         f_i (map f grid)]
-     (/ (reduce + 0 f_i) n))))
+(defn kullback-leibler [f & {:keys [n method]
+                             :or {n 10000
+                                  method "monte-carlo"}}]
+  (let [Ef (expectation f :n n :method method)
+        Ef-log-f (Ef #(log-pdf f %))]
+    (fn [g]
+      (let [Ef-log-g (Ef #(log-pdf g %))]
+        (- Ef-log-f Ef-log-g)))))
