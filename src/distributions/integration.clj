@@ -1,4 +1,4 @@
-(ns distributions.integration)
+(in-ns 'distributions.core)
 
 (defn expectation-mc [d n]
   (let [draws (doall (sample d n))]
