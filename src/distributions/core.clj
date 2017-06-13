@@ -19,4 +19,6 @@
 (load "normal-laplace")
 (load "polya-gamma")
 (load "integration")
+(load "special")
+(load "dirichlet")
 
