@@ -21,4 +21,4 @@
 (load "integration")
 (load "special")
 (load "dirichlet")
-
+(load "discrete-real")

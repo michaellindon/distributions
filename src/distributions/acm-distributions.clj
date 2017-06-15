@@ -20,11 +20,6 @@
 (defn degenerate
   [x]
   (new ConstantRealDistribution x))
-(defn discrete-real
-  [x p]
-  (let [x-double (double-array x)
-        p-double (double-array p)]
-    (new EnumeratedRealDistribution x-double p-double)))
 (defn discrete-integer
   [x p]
   (let [x-int (int-array x)
