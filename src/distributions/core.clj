@@ -22,3 +22,5 @@
 (load "special")
 (load "dirichlet")
 (load "discrete-real")
+(load "mvt")
+(load "inference")
