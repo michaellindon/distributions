@@ -5,6 +5,7 @@
 
 (set-current-implementation :vectorz)
 (defn inv [x] (/ 1 x))
+(load "linalg")
 (load "protocols")
 (load "acm-distributions")
 (def probit (cdf (normal 0 1)))

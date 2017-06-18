@@ -19,7 +19,7 @@
            n (ecount x)
            residual (sub x mean-vector)
            kernel (* (negate (* 0.5 (+ df n))) (log (inc (/ (dot residual (mmul (inverse cov-matrix) residual)) df))))
-           normalizer (- (log-gamma-fn (* 0.5 (+ df n))) (log-gamma-fn (* 0.5 df)) (* 0.5 n (log (* Math/PI df))) (* 0.5 (log (det cov-matrix))))]
+           normalizer (- (log-gamma-fn (* 0.5 (+ df n))) (log-gamma-fn (* 0.5 df)) (* 0.5 n (log (* Math/PI df))) (* 0.5 (log-det cov-matrix)))]
        (+ normalizer kernel)))
     ([d] (fn [x] (log-pdf d x))))
   (pdf

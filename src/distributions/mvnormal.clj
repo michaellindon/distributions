@@ -18,7 +18,7 @@
            n (ecount x)
            residual (sub x mean-vector)
            exponent (* 0.5 (dot residual (mmul (inverse cov-matrix) residual)))
-           normalizer (+ (* 0.5 (log (det cov-matrix)))
+           normalizer (+ (* 0.5 (log-det cov-matrix))
                          (* n 0.5 (log (* 2 Math/PI))))]
        (negate (+ normalizer exponent))
        ))
