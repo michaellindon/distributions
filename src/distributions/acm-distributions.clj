@@ -1,6 +1,6 @@
 (in-ns 'distributions.core)
 
-(import '(org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution NormalDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GammaDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution NormalDistribution ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution EnumeratedIntegerDistribution GeometricDistribution HypergeometricDistribution PascalDistribution PoissonDistribution UniformIntegerDistribution ZipfDistribution))
+(import '(org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution  ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution  GeometricDistribution HypergeometricDistribution PascalDistribution UniformIntegerDistribution ZipfDistribution))
 
 (defn beta
   [alpha beta]
@@ -20,20 +20,12 @@
 (defn degenerate
   [x]
   (new ConstantRealDistribution x))
-(defn discrete-integer
-  [x p]
-  (let [x-int (int-array x)
-        p-double (double-array p)]
-    (new EnumeratedIntegerDistribution x-int p-double)))
 (defn exponential
   [rate]
   (new ExponentialDistribution (/ 1 rate)))
 (defn f-distribution
   [df1 df2]
   (new FDistribution df1 df2))
-(defn gamma
-  [shape rate]
-  (new GammaDistribution shape (/ 1 rate)))
 (defn geometric
   [p]
   (new GeometricDistribution p))
@@ -64,18 +56,12 @@
 (defn negative-binomial
   [r p]
   (new PascalDistribution r p))
-(defn normal
-  [mean variance]
-  (new NormalDistribution mean (sqrt variance)))
 (defn pareto
   [scale shape]
   (new ParetoDistribution scale shape))
 (defn pascal
   [r p]
   (negative-binomial r p))
-(defn poisson
-  [mean]
-  (new PoissonDistribution mean))
 (defn triangular
   [a c b]
   (new TriangularDistribution a c b))
@@ -169,10 +155,6 @@
 
 
 (extend-protocol proximal
-  NormalDistribution
-  (prox
-    ([d] (fn [h x] (* x (/ (inv h) (+ (inv h) (inv (variance d)))))))
-    ([d h x] ((prox d) h x)))
   LaplaceDistribution
   (prox
     ([d] (fn [h x] (* (signum x) (max 0.0 (- (abs x) (* h (get-rate d)))))))

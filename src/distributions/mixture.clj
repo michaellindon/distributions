@@ -2,7 +2,12 @@
 
 (defrecord MixtureDistribution [components probabilities])
 (defn mixture [components probabilities]
-  (MixtureDistribution. components probabilities))
+  (let [Z (reduce + probabilities)]
+    (if (== Z 1.0)
+      (MixtureDistribution. components probabilities)
+      (MixtureDistribution. components (map (fn [x] (/ x Z)) probabilities))
+      ))
+  )
 
 (extend-protocol density-function
   MixtureDistribution

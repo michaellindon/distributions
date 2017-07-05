@@ -1,17 +1,27 @@
 (ns distributions.core
   (:require [distributions.root :refer :all]
             [clojure.core.matrix :refer :all]
-            [clojure.core.matrix.linear :as la]))
+            [clojure.core.matrix.linear :as la]
+            [incanter.charts :refer :all]))
 
 (set-current-implementation :vectorz)
+(defn normalize [coll]
+  (if (empty? coll)
+    nil
+    (let [Z (reduce + coll)]
+      (map #(/ % Z) coll))))
 (defn inv [x] (/ 1 x))
 (load "linalg")
 (load "protocols")
-(load "acm-distributions")
+(load "normal")
 (def probit (cdf (normal 0 1)))
+(load "gamma")
+(load "poisson")
+(load "acm-distributions")
 (load "inverse-gaussian")
 (load "gdp")
 (load "defaults")
+(load "discrete-integer")
 (load "mixture")
 (load "mvnormal")
 (load "truncated")
@@ -25,3 +35,5 @@
 (load "discrete-real")
 (load "mvt")
 (load "inference")
+(load "enumerated")
+(load "chinese-restaurant-process")
