@@ -35,3 +35,4 @@
 
 (defprotocol random
   (sample [d] [d n]))
+

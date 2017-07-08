@@ -28,9 +28,10 @@
   second-central-moment
   (variance [d] (.getNumericalVariance (new EnumeratedRealDistribution (double-array locations) (double-array probabilities)))))
 
-(defn discrete-real [locations probabilities] (new DiscreteReal locations probabilities))
+(defn discrete-real [locations probabilities] (new DiscreteReal locations (normalize probabilities)))
 
-
-
-
-
+(defmethod marginal [java.lang.Object distributions.core.DiscreteReal]
+  [likelihood {locations :locations probabilities :probabilities}]
+  (let [params (first (map first (filter (fn [[k v]] (keyword? v)) likelihood)))
+        ]
+    (mixture (map (fn [x] (assoc likelihood params x) ) locations) probabilities)))

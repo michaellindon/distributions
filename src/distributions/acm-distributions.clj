@@ -1,6 +1,6 @@
 (in-ns 'distributions.core)
 
-(import '(org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution  ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution  GeometricDistribution HypergeometricDistribution PascalDistribution UniformIntegerDistribution ZipfDistribution))
+(import '(org.apache.commons.math3.distribution AbstractIntegerDistribution AbstractRealDistribution IntegerDistribution RealDistribution BetaDistribution CauchyDistribution ChiSquaredDistribution ConstantRealDistribution EnumeratedDistribution EnumeratedRealDistribution ExponentialDistribution FDistribution GumbelDistribution LaplaceDistribution LevyDistribution LogisticDistribution LogNormalDistribution NakagamiDistribution  ParetoDistribution TDistribution TriangularDistribution UniformRealDistribution WeibullDistribution BinomialDistribution  GeometricDistribution HypergeometricDistribution UniformIntegerDistribution ZipfDistribution))
 
 (defn beta
   [alpha beta]
@@ -53,15 +53,9 @@
 (defn nakagami
   [shape spread]
   (new NakagamiDistribution shape spread))
-(defn negative-binomial
-  [r p]
-  (new PascalDistribution r p))
 (defn pareto
   [scale shape]
   (new ParetoDistribution scale shape))
-(defn pascal
-  [r p]
-  (negative-binomial r p))
 (defn triangular
   [a c b]
   (new TriangularDistribution a c b))

@@ -11,11 +11,13 @@
     (let [Z (reduce + coll)]
       (map #(/ % Z) coll))))
 (defn inv [x] (/ 1 x))
+(load "multi-methods")
 (load "linalg")
 (load "protocols")
 (load "normal")
 (def probit (cdf (normal 0 1)))
 (load "gamma")
+(load "negative-binomial")
 (load "poisson")
 (load "acm-distributions")
 (load "inverse-gaussian")
@@ -37,3 +39,6 @@
 (load "inference")
 (load "enumerated")
 (load "chinese-restaurant-process")
+
+(defn posterior-predictive [data likelihood prior]
+  (marginal likelihood (posterior data likelihood prior)))

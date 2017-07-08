@@ -35,3 +35,10 @@
 
 (defn poisson [rate] (new Poisson rate))
 
+(defmethod posterior [distributions.core.Poisson distributions.core.Gamma]
+  [data likelihood prior]
+  (gamma (+ (reduce + data) (:shape prior)) (+ (:rate prior) (count data))))
+
+(defmethod marginal [distributions.core.Poisson distributions.core.Gamma]
+  [likelihood {b1 :shape b2 :rate }]
+  (negative-binomial b1 (/ b2 (inc b2))))

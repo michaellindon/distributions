@@ -5,7 +5,7 @@
 
 (defn cr-process
   ([concentration discount] (cr-process {} concentration discount))
-  ([colours concentration discount] (ChineseRestaurantProcess. colours concentration discount)))
+  ([colours concentration discount] (ChineseRestaurantProcess. (frequencies colours) concentration discount)))
 
 (defrecord CRPRealization [colours concentration discount])
 

@@ -32,3 +32,19 @@
   (variance [d] (.getNumericalVariance (new NormalDistribution mean (sqrt variance)))))
 
 (defn normal [mean variance] (new Normal mean variance))
+
+(defmethod posterior [distributions.core.Normal distributions.core.Normal]
+  [data likelihood prior]
+  (let [prior-var (:variance prior)
+        prior-mean (:mean prior)
+        obs-var (:variance likelihood)
+        n (count data)
+        post-var (inv (+ (/ n obs-var) (inv prior-var)))
+        post-mean (* post-var (+
+                               (/ prior-mean prior-var)
+                               (* (reduce + data) (/ 1 obs-var))))]
+    (normal post-mean post-var)))
+
+(defmethod marginal [distributions.core.Normal distributions.core.Normal]
+  [likelihood prior]
+  (normal (:mean prior) (+ (:variance likelihood) (:variance prior))))
