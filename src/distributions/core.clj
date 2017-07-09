@@ -2,7 +2,8 @@
   (:require [distributions.root :refer :all]
             [clojure.core.matrix :refer :all]
             [clojure.core.matrix.linear :as la]
-            [incanter.charts :refer :all]))
+            [incanter.charts :refer :all]
+            [clojure.set :as set]))
 
 (set-current-implementation :vectorz)
 (defn normalize [coll]
@@ -11,6 +12,14 @@
     (let [Z (reduce + coll)]
       (map #(/ % Z) coll))))
 (defn inv [x] (/ 1 x))
+(defn positions
+  [pred coll]
+  (keep-indexed (fn [idx x]
+                  (when (pred x)
+                    idx))
+                coll))
+
+(defn remove-at [coll idx] (for [i (remove #(== % idx) (range 0 (count coll)))] (nth coll i)))
 (load "multi-methods")
 (load "linalg")
 (load "protocols")
@@ -42,3 +51,5 @@
 
 (defn posterior-predictive [data likelihood prior]
   (marginal likelihood (posterior data likelihood prior)))
+
+(load "dirichlet-process")
