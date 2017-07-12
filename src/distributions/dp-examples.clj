@@ -1,6 +1,8 @@
 (ns distributions.dp-examples
   (:require [distributions.core :refer :all]))
-
+(ns λ)
+(use 'distributions.core)
+(use 'distributions.sampling)
 
 ;Normal Mixture Model Example
 (require '[incanter.charts :as plot])
@@ -20,13 +22,6 @@
 (ic/view allplots)
 (rn-alg3 observations likelihood base-measure concentration 10)
 
-
-
-
-
-
-
-
 ;Traffic Examples
 (def no (map read-string (clojure.string/split-lines (slurp "no"))))
 (def yes (map read-string (clojure.string/split-lines (slurp "yes"))))
@@ -41,9 +36,6 @@
 (def seed (plot/time-series-plot (range 0 70) (map (first pred-fn-draws) (range 0 50))))
 (def allplots (reduce (fn [chart newfun] (plot/add-lines chart (range 0 70) (map newfun (range 0 70)))) seed (rest pred-fn-draws)))
 (ic/view allplots)
-
-
-
 
 (defn predictive [c observations concentration base-measure]
   (let [crp (cr-process c concentration 0)
@@ -62,13 +54,8 @@
 (def freq (frequencies [1.1 2.2 2.2 2.2 3.3 3.3]))
 (discrete-real (keys freq) (vals freq))
 (ic/view (plot/histogram (map (fn [x] (sample (poisson x))) (sample base-measure 10000)) :nbins 120 :density true))
-
 (ic/view (plot/scatter-plot (range 0 70) (map (pdf (marginal likelihood base-measure)) (range 0 70))))
 (ic/view (plot/add-points (plot/histogram (map (fn [x] (sample (poisson x))) (sample base-measure 20000)) :nbins 140 :density true) (range 0 70) (map (pdf (marginal likelihood base-measure)) (range 0 70))))
-
-
-
-
 
 (defrecord DPRealization [points-ref concentration base-measure])
 

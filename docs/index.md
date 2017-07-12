@@ -1,8 +1,12 @@
 ![logo](named-logo.jpg)
 # Introduction to Distributions
 Distributions is a statistical computing environment for Clojure. It uses
-Clojures protocols and multimethods to build a rich abstraction for manipulating
-and composing probability distributions, both parametric and nonparametric.
+Clojures protocols and multimethods to build a rich abstraction for interacting with
+and manipulating probability distributions, as well as extra functionality to make the lives
+of those working with probabilistic models little bit easier. Hopefully
+you will be pleased by some of the design choices that were made in building the distributions API.
+
+Michael Lindon
 
 # Features
 * Idiomatic Clojure wrappers around Apache commons math distributions

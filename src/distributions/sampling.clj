@@ -38,7 +38,7 @@
 
 (defn slice-sampler
   ([target width seed]
-   (slice target width seed false))
+   (slice-sampler target width seed false))
   ([target width seed log-target?]
    (let [log-target (if log-target? target #(log (target %)))
          slice-iterator (partial slice-step log-target width)]

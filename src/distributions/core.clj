@@ -53,3 +53,4 @@
   (marginal likelihood (posterior data likelihood prior)))
 
 (load "dirichlet-process")
+(load "sampling")

@@ -56,9 +56,9 @@
 (defn rn-alg3 [observations likelihood base-measure concentration niter]
   (let [n (count observations)
         initial-labels (into [] (range 0 n))
-        label-draws (take 100 (iterate (partial dp-update-labels observations likelihood base-measure concentration) initial-labels))
+        label-draws (take niter (iterate (partial dp-update-labels observations likelihood base-measure concentration) initial-labels))
         param-draws (map (partial dp-update-params observations likelihood base-measure concentration ) label-draws)
-        pred-fn-draws (map (fn [params] (pdf (marginal (normal :mu 1) (posterior-predictive params :G (dirichlet-process concentration base-measure))))) param-draws)]
+        pred-fn-draws (map (fn [params] (pdf (marginal likelihood (posterior-predictive params :G (dirichlet-process concentration base-measure))))) param-draws)]
     {:labels label-draws :parameters param-draws :densities pred-fn-draws }))
 
 
