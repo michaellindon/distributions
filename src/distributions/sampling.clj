@@ -1,4 +1,4 @@
-(ns distributions.sampling)
+(in-ns 'distributions.core)
 
 (defn mh-step
   ([target proposal x-old] (mh-step target proposal x-old false))

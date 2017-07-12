@@ -1,13 +1,13 @@
 (in-ns 'distributions.core)
 
-(defrecord DirichletDistribution [alpha])
+(defrecord DirichletDistribution [concentration])
 
-(defn dirichlet [alpha] (DirichletDistribution. alpha))
+(defn dirichlet [concentration] (DirichletDistribution. concentration))
 
 (extend-protocol random
   DirichletDistribution
   (sample
-    ([d] (let [components (map #(sample (gamma % 1)) (:alpha d))
+    ([d] (let [components (map #(sample (gamma % 1)) (:concentration d))
                component-sum (reduce + components)]
            (mapv #(/ % component-sum) components)))
     ([d n] (take n (repeatedly #(sample d))))))
@@ -19,31 +19,31 @@
     ([d] (fn [x] (pdf d x))))
   (log-pdf
     ([d x]
-     (let [alphas (:alpha d)
-           a-sum (reduce + alphas)
-           log-gammas (map  log-gamma-fn alphas)
+     (let [concentrations (:concentration d)
+           a-sum (reduce + concentrations)
+           log-gammas (map  log-gamma-fn concentrations)
            log-B (- (reduce + log-gammas) (log-gamma-fn a-sum))
            ]
-       (- (reduce + (map (fn [y a] (* (dec a) (Math/log y))) x alphas)) log-B)))
+       (- (reduce + (map (fn [y a] (* (dec a) (Math/log y))) x concentrations)) log-B)))
     ([d] (fn [x] (log-pdf d x)))))
 
 (extend-protocol first-moment
   DirichletDistribution
   (mean
     [d]
-    (let [alphas (:alpha d)
-          a-sum (reduce + alphas)]
-      (mapv #(/ % a-sum) alphas))))
+    (let [concentrations (:concentration d)
+          a-sum (reduce + concentrations)]
+      (mapv #(/ % a-sum) concentrations))))
 
 (extend-protocol second-central-moment
   DirichletDistribution
   (variance [d]
-    (let [alphas (:alpha d)
-          a0 (reduce + alphas)
+    (let [concentrations (:concentration d)
+          a0 (reduce + concentrations)
           denom (* (inc a0) (square a0))
-          d (count alphas)]
+          d (count concentrations)]
       (reshape (for [i (range 0 d)
                      j (range 0 d)]
                  (if (= i j)
-                   (/ (* (nth alphas i) (- a0 (nth alphas i))))
-                   (/ (negate (* (nth alphas i) (nth alphas j))) denom))) [d d]))))
+                   (/ (* (nth concentrations i) (- a0 (nth concentrations i))))
+                   (/ (negate (* (nth concentrations i) (nth concentrations j))) denom))) [d d]))))

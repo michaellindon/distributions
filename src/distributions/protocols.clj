@@ -27,8 +27,8 @@
 (defprotocol second-central-moment
   (variance [d]))
 
-(defprotocol standard-deviation
-  (std [d]))
+(defprotocol Standard-Deviation
+  (standard-deviation [d]))
 
 (defprotocol proximal
   (prox [d] [d h x]))
