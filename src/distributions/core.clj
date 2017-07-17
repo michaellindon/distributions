@@ -23,6 +23,7 @@
 (load "multi-methods")
 (load "linalg")
 (load "protocols")
+(load "inverse-gamma")
 (load "normal")
 (def probit (cdf (normal 0 1)))
 (load "gamma")
@@ -54,4 +55,3 @@
 
 (load "dirichlet-process")
 (load "sampling")
-(load "inverse-gamma")

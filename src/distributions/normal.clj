@@ -45,6 +45,12 @@
                                (* (reduce + data) (/ 1 obs-var))))]
     (normal post-mean post-var)))
 
+(defmethod posterior [distributions.core.Normal distributions.core.InverseGamma]
+  [data likelihood prior]
+  (let [ss (reduce + 0 (map (fn [x] (* x x)) (map - data (repeat (:mean likelihood)))))
+        n (count data)]
+    (inverse-gamma (+ (:shape prior) (/ n 2)) (+ (:scale prior) (/ ss 2)))))
+
 (defmethod marginal [distributions.core.Normal distributions.core.Normal]
   [likelihood prior]
   (normal (:mean prior) (+ (:variance likelihood) (:variance prior))))
