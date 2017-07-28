@@ -22,7 +22,7 @@
 (extend-protocol distribution-function
   TruncatedDistribution
   (cdf
-    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d] (fn [x] (cdf d x)))
     ([d x]
      (cond
        (> x (:upper d)) 1.0

@@ -21,7 +21,7 @@
 (extend-protocol distribution-function
   Mixture
   (cdf
-    ([d] (fn [x] (.cumulativeProbability d x)))
+    ([d] (fn [x] (cdf d x)))
     ([d x] (reduce + 0 (map (fn [c p] (* p (cdf c x))) (:components d) (:probabilities d))))))
 
 (extend-protocol support
