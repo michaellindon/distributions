@@ -1,6 +1,14 @@
 (in-ns 'distributions.core)
 
-(defrecord LocationScaleDistribution [distribution location scale])
+(defrecord LocationScaleDistribution [distribution location scale]
+  support
+  (support-lower [d] (+ location (support-lower distribution)))
+  (support-upper [d] (+ location (support-upper distribution)))
+  first-moment
+  (mean [d] (+ location (mean distribution)))
+  second-central-moment
+  (variance [d] (* scale scale (variance distribution))))
+
 (defn location-scale
   [distribution location scale]
   (LocationScaleDistribution. distribution location scale))

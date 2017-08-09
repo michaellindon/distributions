@@ -2,7 +2,6 @@
   (:require [distributions.root :refer :all]
             [clojure.core.matrix :refer :all]
             [clojure.core.matrix.linear :as la]
-            [incanter.charts :refer :all]
             [clojure.set :as set]))
 
 (set-current-implementation :vectorz)
