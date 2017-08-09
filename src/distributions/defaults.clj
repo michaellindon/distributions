@@ -5,6 +5,7 @@
   (sample
     ([d] (icdf d (sample (uniform 0 1))))
     ([d n] (take n (repeatedly #(sample d))))))
+
 (extend-protocol inverse-distribution-function
   Object
   (icdf
@@ -12,10 +13,11 @@
     ([d x]
      (let [f #(- (cdf d %) x)
            w 1 ;(standard-deviation d)
-           m 0 ;(mean d)
+           m (mean d)
            a (max (support-lower d) (first (drop-while #(> (f %) 0) (iterate #(- % w) m))))
            b (min (support-upper d) (first (drop-while #(< (f %) 0) (iterate #(+ % w) m))))]
        (bisection f a b)))))
+
 (extend-protocol Standard-Deviation
   Object
   (standard-deviation [d] (sqrt (variance d))))

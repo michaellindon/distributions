@@ -3,10 +3,10 @@
 
 (defrecord Enumerated [items probabilities discrete imap])
 
-(defn enumerated [items probabilities]
+(defn enumerated [items probabilities & {:keys [log?]
+                                         :or {log? false}}]
   (let [integers (range 0 (count items))
-        Z (reduce + probabilities)
-        prob (map (fn [x] (/ x Z)) probabilities)]
+        prob (if log? (normalize-log probabilities) (normalize probabilities))]
     (Enumerated. items prob (discrete-integer integers prob) (into {} (map vector items integers )))))
 
 (extend-protocol random

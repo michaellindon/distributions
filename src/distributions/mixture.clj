@@ -1,22 +1,20 @@
 (in-ns 'distributions.core)
 
-(defrecord Mixture [components probabilities])
-(defn mixture [components probabilities]
-  (let [Z (reduce + probabilities)]
-    (if (== Z 1.0)
-      (Mixture. components probabilities)
-      (Mixture. components (map (fn [x] (/ x Z)) probabilities))
-      ))
+(defrecord Mixture [components probabilities]
+  density-function
+  (pdf [d x] (reduce + 0 (map (fn [c p] (* p (pdf c x))) components probabilities)))
+  (pdf [d] (fn [x] (pdf d x)))
+  (log-pdf [d x]
+    (let [logprob (map log probabilities)
+          logcomp (map #(log-pdf % x) components)]
+      (log-sum-exp (map + logprob logcomp))))
+  (log-pdf [d] (fn [x] (log-pdf d x)))
   )
 
-(extend-protocol density-function
-  Mixture
-  (pdf
-    ([d x] (reduce + 0 (map (fn [c p] (* p (pdf c x))) (:components d) (:probabilities d))))
-    ([d] (fn [x] (pdf d x))))
-  (log-pdf
-    ([d x] (log (pdf d x)))
-    ([d] (fn [x] (log-pdf d x)))))
+
+(defn mixture [components probabilities & {:keys [log?] :or {log? false}}]
+  (let [prob (if log? (normalize-log probabilities) (normalize probabilities))]
+    (Mixture. components prob))  )
 
 (extend-protocol distribution-function
   Mixture

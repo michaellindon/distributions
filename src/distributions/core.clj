@@ -5,11 +5,26 @@
             [clojure.set :as set]))
 
 (set-current-implementation :vectorz)
+
 (defn normalize [coll]
   (if (empty? coll)
     nil
     (let [Z (reduce + coll)]
       (map #(/ % Z) coll))))
+
+(defn normalize-log [coll]
+  (let [a (reduce max coll)
+        shifted (map - coll (repeat a))
+        expshifted (map exp shifted)
+        Z (reduce + expshifted)
+        ]
+    (map #(/ % Z) expshifted)))
+
+(defn log-sum-exp [coll]
+  (let [a (reduce max coll)
+        expshifted (map (fn [x] (exp (- x a))) coll)]
+    (+ a (log (reduce + expshifted)))))
+
 (defn inv [x] (/ 1 x))
 (defn positions
   [pred coll]
