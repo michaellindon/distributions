@@ -47,7 +47,7 @@
            components (:components d)
            n (count weights)
            i (sample (discrete-integer (range 0 n) weights))]
-       (sample (get components i))))
+       (sample (nth components i))))
     ([d n] (take n (repeatedly #(sample d))))))
 
 
