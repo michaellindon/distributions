@@ -34,5 +34,6 @@
   (variance [d] (.getNumericalVariance (new EnumeratedIntegerDistribution (int-array integers) (double-array probabilities)))))
 
 (defn discrete-integer
-  [integers probabilities]
-  (new DiscreteInteger integers (normalize probabilities)))
+  [integers probabilities & {:keys [log?]
+                             :or {log? false}}]
+  (new DiscreteInteger integers (if log? (normalize-log probabilities) (normalize probabilities))))
