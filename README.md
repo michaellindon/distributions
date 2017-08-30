@@ -1,3 +1,6 @@
+![distributions logo](/docs/images/named-logo.jpg)
+
+
 # distributions
 
 A statistical distributions library.
