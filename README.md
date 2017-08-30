@@ -1,13 +1,7 @@
 ![distributions logo](/docs/images/named-logo.jpg)
 
 
-# distributions
-
-A statistical distributions library.
-
-## Usage
-
-Documentation coming shortly...
+![Project Homepage and Documentation](https://michaellindon.github.io/software/distributions/)
 
 ## License
 
