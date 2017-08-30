@@ -1,7 +1,7 @@
 ![distributions logo](/docs/images/named-logo.jpg)
 
 
-![Project Homepage and Documentation](https://michaellindon.github.io/software/distributions/)
+[Project Homepage and Documentation](https://michaellindon.github.io/software/distributions/)
 
 ## License
 
