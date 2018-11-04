@@ -69,3 +69,4 @@
 
 (load "dirichlet-process")
 (load "sampling")
+(load "normal-inverse-gamma")
