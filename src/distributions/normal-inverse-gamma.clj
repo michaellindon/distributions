@@ -21,6 +21,8 @@
                           (log-pdf (normal location (/ s2 lambda)) mu)))
   (log-pdf [d] (fn [x] (pdf d x))))
 
+(defn normal-inverse-gamma [location prec shape scale] (new NormalInverseGamma location prec shape scale))
+
 (defmethod posterior [distributions.core.Normal distributions.core.NormalInverseGamma]
   [y likelihood prior]
   (let [prior-mean (:location prior)
@@ -43,8 +45,6 @@
         ]
     (normal-inverse-gamma post-mean post-lambda post-shape post-scale)))
 
-(defn normal-inverse-gamma [location prec shape scale] (new NormalInverseGamma location prec shape scale))
-
 (defmethod marginal [distributions.core.Normal distributions.core.NormalInverseGamma]
   [likelihood prior]
   (let [{prior-shape :shape
@@ -56,7 +56,7 @@
                     (sqrt (/ (* prior-scale (+ 1 prior-lambda))
                              (* prior-lambda prior-shape))))))
 
-(comment 
+(comment
 (sample (marginal (normal :mu :s2) (normal-inverse-gamma 2 3 1 2)))
 
 (def Y [1 1 1 2 2 3 1 2 5])
