@@ -5,8 +5,8 @@
 
 (defrecord NormalInverseGamma [location lambda shape scale]
   random
-  (sample [d] (let [s2 (/ 1 (.sample (new GammaDistribution shape (/ 1 scale))))
-                    mu (.sample (new NormalDistribution location (sqrt (/ s2 lambda))))]
+  (sample [d] (let [s2 (sample (inverse-gamma shape scale))
+                    mu (sample (normal location (/ s2 lambda)))]
                 [mu s2]))
   (sample [d n] (take n (repeatedly #(sample d))))
   probability-function
@@ -53,8 +53,8 @@
          prior-location :location} prior]
     (t-distribution (* 2 prior-shape)
                     prior-location
-                    (/ (* prior-scale (+ 1 prior-lambda))
-                       (* prior-lambda prior-shape)))))
+                    (sqrt (/ (* prior-scale (+ 1 prior-lambda))
+                             (* prior-lambda prior-shape))))))
 
 (comment 
 (sample (marginal (normal :mu :s2) (normal-inverse-gamma 2 3 1 2)))
@@ -68,7 +68,7 @@
 (def s22 1)
 (def prior-mean 3)
 (def prior-lambda 2)
-(def prior-shape 5)
+(def prior-shape 10)
 (def prior-scale 3)
 (- (log-pdf (posterior Y (normal :mu :s2) (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale)) [mu1 s21])
    (log-pdf (posterior Y (normal :mu :s2) (normal-inverse-gamma  prior-mean prior-lambda prior-shape prior-scale)) [mu2 s22]) )
@@ -86,4 +86,35 @@
                             (reduce + (map square (sub Y (mean Y))))) 2)))
 
 (double (:scale (posterior Y (normal :mu :s2) (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale))))
+
+
+(variance (t-distribution 4))
+(variance (t-distribution 4 0 10))
+
+(* (variance (t-distribution (* 2 prior-shape)))  (/ (* prior-scale (+ 1 prior-lambda)) (* prior-lambda prior-shape)))
+(variance (map (fn [[mu s2]] (sample (normal mu s2))) (sample (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale) 100000)))
+(variance (marginal (normal :mu :s2) (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale)))
+(variance (sample (marginal (normal :mu :s2) (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale)) 10000))
+
+(* (variance (t-distribution (* 2 prior-shape))) (/ (* prior-lambda prior-shape) prior-scale))
+(variance (map first 
+               (sample (normal-inverse-gamma prior-mean prior-lambda prior-shape prior-scale) 10000)))
+
+(double (variance (inverse-gamma 10 10 )))
+(variance (sample (inverse-gamma 10 10) 100000))
+
+(def d (inverse-gamma 10 3))
+(double (variance d))
+(variance (sample d 100000))
+
+
+
+
+(variance (map (fn [[mu s2]] (sample (normal mu s2))) (sample (normal-inverse-gamma 4 2 1000 4) 100000)))
+(variance (map second (sample (normal-inverse-gamma 4 3 5 4) 10000)))
+(variance (inverse-gamma 5 4))
+(variance (sample (marginal (normal :mu :s2) (normal-inverse-gamma 4 2 1000 4)) 100000))
+(variance (marginal (normal :mu :s2) (normal-inverse-gamma 4 2 1000 4)))
+(variance (t-distribution 30000 3 10))
+
 )
